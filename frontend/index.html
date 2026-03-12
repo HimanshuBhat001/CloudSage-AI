@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <title>CloudSage Dashboard</title>
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="./style.css">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -31,22 +32,22 @@ border-radius:5px;">
 
 <div class="card">
 <h2>Server Status</h2>
-<p id="serverStatus"></p>
+<p id="serverStatus">Loading...</p>
 </div>
 
 <div class="card">
 <h2>Platform</h2>
-<p id="platform"></p>
+<p id="platform">Loading...</p>
 </div>
 
 <div class="card">
 <h2>CPU Cores</h2>
-<p id="cpu"></p>
+<p id="cpu">Loading...</p>
 </div>
 
 <div class="card">
 <h2>Server Uptime</h2>
-<p id="uptime"></p>
+<p id="uptime">Loading...</p>
 </div>
 
 </div>
@@ -65,6 +66,7 @@ padding:20px;
 border-radius:10px;
 max-height:200px;
 overflow-y:auto;">
+Loading logs...
 </div>
 
 <button onclick="logout()">Logout</button>
@@ -73,11 +75,15 @@ overflow-y:auto;">
 
 <script>
 
+/* AUTH CHECK */
+
 const token = localStorage.getItem("token");
 
 if(!token){
     window.location.href="login.html";
 }
+
+/* CHART VARIABLES */
 
 let memoryChart;
 let cpuChart;
@@ -85,24 +91,26 @@ let cpuChart;
 let cpuHistory = [];
 let labels = [];
 
-/* LOAD METRICS */
+/* LOAD SERVER STATUS */
 
 async function loadStatus(){
 
+try{
+
     const response = await fetch("http://localhost:5000/api/status");
+
     const data = await response.json();
 
     document.getElementById("serverStatus").innerText = data.server;
     document.getElementById("platform").innerText = data.platform;
     document.getElementById("cpu").innerText = data.cpuCores;
+
     document.getElementById("uptime").innerText =
         Math.floor(data.uptime) + " seconds";
 
     const usedMem = parseFloat(data.usedMemory);
     const freeMem = parseFloat(data.freeMemory);
     const cpuLoad = parseFloat(data.cpuLoad);
-
-    /* MEMORY ALERT */
 
     const usedPercent = (usedMem / (usedMem + freeMem)) * 100;
 
@@ -138,7 +146,7 @@ async function loadStatus(){
 
     }
 
-    /* CPU HISTORY GRAPH */
+    /* CPU GRAPH */
 
     const time=new Date().toLocaleTimeString();
 
@@ -175,13 +183,22 @@ async function loadStatus(){
 
     }
 
+}catch(error){
+
+console.log("Backend not reachable");
+
+}
+
 }
 
 /* LOAD LOGS */
 
 async function loadLogs(){
 
+try{
+
     const response=await fetch("http://localhost:5000/api/logs");
+
     const logs=await response.json();
 
     const logsBox=document.getElementById("logsBox");
@@ -189,19 +206,34 @@ async function loadLogs(){
     logsBox.innerHTML="";
 
     logs.forEach(log=>{
+
         const p=document.createElement("p");
+
         p.innerText=log;
+
         logsBox.appendChild(p);
+
     });
+
+}catch(error){
+
+console.log("Logs API not reachable");
+
+}
 
 }
 
 /* LOGOUT */
 
 function logout(){
-    localStorage.removeItem("token");
-    window.location.href="login.html";
+
+localStorage.removeItem("token");
+
+window.location.href="login.html";
+
 }
+
+/* START DASHBOARD */
 
 loadStatus();
 loadLogs();
