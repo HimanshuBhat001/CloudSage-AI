@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>CloudSage Dashboard</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<div class="dashboard">
+
+<h1>CloudSage Dashboard</h1>
+
+<div id="alertBox" style="
+display:none;
+background:#ef4444;
+color:white;
+padding:10px;
+text-align:center;
+margin-bottom:20px;
+border-radius:5px;">
+⚠️ High memory usage detected
+</div>
+
+<div class="cards">
+
+<div class="card">
+<h2>Server Status</h2>
+<p id="serverStatus"></p>
+</div>
+
+<div class="card">
+<h2>Platform</h2>
+<p id="platform"></p>
+</div>
+
+<div class="card">
+<h2>CPU Cores</h2>
+<p id="cpu"></p>
+</div>
+
+<div class="card">
+<h2>Server Uptime</h2>
+<p id="uptime"></p>
+</div>
+
+</div>
+
+<h2>Memory Usage</h2>
+<canvas id="memoryChart"></canvas>
+
+<h2 style="margin-top:40px;">CPU Load (Live)</h2>
+<canvas id="cpuChart"></canvas>
+
+<h2 style="margin-top:40px;">Recent Logs</h2>
+
+<div id="logsBox" style="
+background:#121826;
+padding:20px;
+border-radius:10px;
+max-height:200px;
+overflow-y:auto;">
+</div>
+
+<button onclick="logout()">Logout</button>
+
+</div>
+
+<script>
+
+const token = localStorage.getItem("token");
+
+if(!token){
+    window.location.href="login.html";
+}
+
+let memoryChart;
+let cpuChart;
+
+let cpuHistory = [];
+let labels = [];
+
+/* LOAD METRICS */
+
+async function loadStatus(){
+
+    const response = await fetch("http://localhost:5000/api/status");
+    const data = await response.json();
+
+    document.getElementById("serverStatus").innerText = data.server;
+    document.getElementById("platform").innerText = data.platform;
+    document.getElementById("cpu").innerText = data.cpuCores;
+    document.getElementById("uptime").innerText =
+        Math.floor(data.uptime) + " seconds";
+
+    const usedMem = parseFloat(data.usedMemory);
+    const freeMem = parseFloat(data.freeMemory);
+    const cpuLoad = parseFloat(data.cpuLoad);
+
+    /* MEMORY ALERT */
+
+    const usedPercent = (usedMem / (usedMem + freeMem)) * 100;
+
+    const alertBox = document.getElementById("alertBox");
+
+    if(usedPercent > 80){
+        alertBox.style.display="block";
+    }else{
+        alertBox.style.display="none";
+    }
+
+    /* MEMORY CHART */
+
+    if(!memoryChart){
+
+        const ctx=document.getElementById("memoryChart");
+
+        memoryChart=new Chart(ctx,{
+            type:"doughnut",
+            data:{
+                labels:["Used Memory","Free Memory"],
+                datasets:[{
+                    data:[usedMem,freeMem],
+                    backgroundColor:["#ef4444","#22c55e"]
+                }]
+            }
+        });
+
+    }else{
+
+        memoryChart.data.datasets[0].data=[usedMem,freeMem];
+        memoryChart.update();
+
+    }
+
+    /* CPU HISTORY GRAPH */
+
+    const time=new Date().toLocaleTimeString();
+
+    cpuHistory.push(cpuLoad);
+    labels.push(time);
+
+    if(cpuHistory.length>12){
+        cpuHistory.shift();
+        labels.shift();
+    }
+
+    if(!cpuChart){
+
+        const ctx2=document.getElementById("cpuChart");
+
+        cpuChart=new Chart(ctx2,{
+            type:"line",
+            data:{
+                labels:labels,
+                datasets:[{
+                    label:"CPU Load",
+                    data:cpuHistory,
+                    borderColor:"#3b82f6",
+                    fill:false
+                }]
+            }
+        });
+
+    }else{
+
+        cpuChart.data.labels=labels;
+        cpuChart.data.datasets[0].data=cpuHistory;
+        cpuChart.update();
+
+    }
+
+}
+
+/* LOAD LOGS */
+
+async function loadLogs(){
+
+    const response=await fetch("http://localhost:5000/api/logs");
+    const logs=await response.json();
+
+    const logsBox=document.getElementById("logsBox");
+
+    logsBox.innerHTML="";
+
+    logs.forEach(log=>{
+        const p=document.createElement("p");
+        p.innerText=log;
+        logsBox.appendChild(p);
+    });
+
+}
+
+/* LOGOUT */
+
+function logout(){
+    localStorage.removeItem("token");
+    window.location.href="login.html";
+}
+
+loadStatus();
+loadLogs();
+
+setInterval(loadStatus,5000);
+setInterval(loadLogs,10000);
+
+</script>
+
+</body>
+</html>
