@@ -69,6 +69,32 @@ overflow-y:auto;">
 Loading logs...
 </div>
 
+
+<!-- NEW SECTION : CONTAINERS -->
+
+<h2 style="margin-top:40px;">Docker Containers</h2>
+
+<div id="containerBox" style="
+background:#121826;
+padding:20px;
+border-radius:10px;
+margin-bottom:30px;">
+Loading containers...
+</div>
+
+
+<!-- NEW SECTION : AI ANALYSIS -->
+
+<h2>AI Analysis</h2>
+
+<div id="analysisBox" style="
+background:#121826;
+padding:20px;
+border-radius:10px;">
+Loading analysis...
+</div>
+
+
 <button onclick="logout()">Logout</button>
 
 </div>
@@ -191,6 +217,7 @@ console.log("Backend not reachable");
 
 }
 
+
 /* LOAD LOGS */
 
 async function loadLogs(){
@@ -223,6 +250,81 @@ console.log("Logs API not reachable");
 
 }
 
+
+/* NEW : LOAD DOCKER CONTAINERS */
+
+async function loadContainers(){
+
+try{
+
+const res = await fetch("http://localhost:5000/api/containers");
+
+const data = await res.json();
+
+const box=document.getElementById("containerBox");
+
+box.innerHTML="";
+
+data.containers.forEach(container=>{
+
+const div=document.createElement("div");
+
+div.style.marginBottom="10px";
+
+div.innerHTML=`
+<b>${container.name}</b><br>
+Image: ${container.image}<br>
+Status: ${container.status}
+`;
+
+box.appendChild(div);
+
+});
+
+}catch(error){
+
+console.log("Containers API not reachable");
+
+}
+
+}
+
+
+/* NEW : LOAD AI ANALYSIS */
+
+async function loadAnalysis(){
+
+try{
+
+const res = await fetch("http://localhost:5000/api/analysis");
+
+const data = await res.json();
+
+const box=document.getElementById("analysisBox");
+
+box.innerHTML="";
+
+data.analysis.forEach(issue=>{
+
+const div=document.createElement("div");
+
+div.style.marginBottom="10px";
+
+div.innerHTML=`⚠ ${issue}`;
+
+box.appendChild(div);
+
+});
+
+}catch(error){
+
+console.log("Analysis API not reachable");
+
+}
+
+}
+
+
 /* LOGOUT */
 
 function logout(){
@@ -233,13 +335,18 @@ window.location.href="login.html";
 
 }
 
+
 /* START DASHBOARD */
 
 loadStatus();
 loadLogs();
+loadContainers();
+loadAnalysis();
 
 setInterval(loadStatus,5000);
 setInterval(loadLogs,10000);
+setInterval(loadContainers,10000);
+setInterval(loadAnalysis,10000);
 
 </script>
 

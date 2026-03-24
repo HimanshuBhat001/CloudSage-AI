@@ -1,101 +1,216 @@
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const os = require("os");
-
-const authRoutes = require("./api/auth");
-require("./config/db");
-
-dotenv.config();
+const { exec } = require("child_process");
 
 const app = express();
-
-/* MIDDLEWARE */
 
 app.use(cors());
 app.use(express.json());
 
-/* AUTH ROUTES */
+/* CPU HISTORY FOR ANOMALY DETECTION */
+let cpuHistory = [];
 
-app.use("/api/auth", authRoutes);
-
-/* ROOT */
+/* ROOT ROUTE */
 
 app.get("/", (req, res) => {
-    res.send("CloudSage Backend Running");
+res.send("CloudSage Backend Running 🚀");
 });
 
-/* SYSTEM STATUS */
+
+/* SERVER STATUS */
 
 app.get("/api/status", (req, res) => {
 
-    const totalMem = os.totalmem();
-    const freeMem = os.freemem();
-    const usedMem = totalMem - freeMem;
+const totalMem = os.totalmem() / 1024 / 1024 / 1024;
+const freeMem = os.freemem() / 1024 / 1024 / 1024;
+const usedMem = totalMem - freeMem;
 
-    const cpuLoad = os.loadavg()[0];
+const cpuLoad = os.loadavg()[0];
 
-    res.json({
-        server: "running",
-        uptime: process.uptime(),
-        platform: os.platform(),
-        cpuCores: os.cpus().length,
-        cpuLoad: cpuLoad.toFixed(2),
-        totalMemory: (totalMem / 1024 / 1024 / 1024).toFixed(2),
-        freeMemory: (freeMem / 1024 / 1024 / 1024).toFixed(2),
-        usedMemory: (usedMem / 1024 / 1024 / 1024).toFixed(2)
-    });
+res.json({
+server: os.hostname(),
+platform: os.platform(),
+cpuCores: os.cpus().length,
+uptime: os.uptime(),
+usedMemory: usedMem.toFixed(2),
+freeMemory: freeMem.toFixed(2),
+cpuLoad: cpuLoad.toFixed(2)
+});
 
 });
 
-/* LOGS API */
+
+/* LOGS */
 
 app.get("/api/logs", (req, res) => {
 
-    const logs = [
-        "Server started",
-        "Database connected",
-        "User login successful",
-        "Metrics requested",
-        "Dashboard refreshed"
-    ];
+const logs = [
+"CloudSage monitoring started",
+"System metrics collected",
+"Docker containers scanned",
+"Memory usage normal",
+"System operating normally"
+];
 
-    res.json(logs);
-
-});
-
-/* ALERTS API */
-
-app.get("/api/alerts",(req,res)=>{
-
-    const alerts=[
-        {message:"Memory usage above 80%",level:"warning"},
-        {message:"Server-2 CPU above 90%",level:"critical"},
-        {message:"Server-3 unreachable",level:"danger"}
-    ];
-
-    res.json(alerts);
+res.json(logs);
 
 });
 
-/* MULTI SERVER API */
 
-app.get("/api/servers", (req, res) => {
+/* DOCKER CONTAINER LIST */
 
-    const servers = [
-        { name: "Server-1", cpu: 32, memory: 65, status: "running" },
-        { name: "Server-2", cpu: 45, memory: 40, status: "running" },
-        { name: "Server-3", cpu: 12, memory: 22, status: "running" }
-    ];
+app.get("/api/containers", (req, res) => {
 
-    res.json(servers);
+exec(
+'docker ps --format "{{.Names}}|{{.Image}}|{{.Status}}"',
+(error, stdout) => {
+
+if(error){
+return res.json({containers:[]});
+}
+
+const containers = stdout
+.trim()
+.split("\n")
+.filter(Boolean)
+.map(line => {
+
+const parts = line.split("|");
+
+return {
+name: parts[0],
+image: parts[1],
+status: parts[2]
+};
 
 });
+
+res.json({containers});
+
+});
+
+});
+
+
+/* CONTAINER CPU & MEMORY */
+
+app.get("/api/containerStats", (req, res) => {
+
+exec(
+'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}"',
+(error, stdout) => {
+
+if(error){
+return res.json({containers:[]});
+}
+
+const containers = stdout
+.trim()
+.split("\n")
+.filter(Boolean)
+.map(line => {
+
+const parts = line.split("|");
+
+return {
+name: parts[0],
+cpu: parts[1],
+memory: parts[2]
+};
+
+});
+
+res.json({containers});
+
+});
+
+});
+
+
+/* AI ANALYSIS */
+
+app.get("/api/analysis", (req, res) => {
+
+const cpuLoad = os.loadavg()[0];
+const totalMem = os.totalmem();
+const freeMem = os.freemem();
+
+const usedPercent = ((totalMem - freeMem) / totalMem) * 100;
+
+let analysis = [];
+
+/* CPU ANOMALY DETECTION */
+
+cpuHistory.push(cpuLoad);
+
+if(cpuHistory.length > 10){
+cpuHistory.shift();
+}
+
+const avgCpu =
+cpuHistory.reduce((a,b)=>a+b,0) / cpuHistory.length;
+
+if(cpuLoad > avgCpu * 1.5){
+analysis.push("Unusual CPU spike detected");
+}
+
+/* MEMORY CHECK */
+
+if(usedPercent > 80){
+analysis.push("Memory usage above 80%");
+}
+
+/* CONTAINER HEALTH CHECK */
+
+exec(
+'docker ps -a --format "{{.Names}}|{{.Status}}"',
+(error, stdout) => {
+
+if(!error){
+
+const lines = stdout.trim().split("\n");
+
+lines.forEach(line => {
+
+const parts = line.split("|");
+
+const name = parts[0];
+const status = parts[1];
+
+if(status.includes("Exited")){
+analysis.push(`Container ${name} has stopped`);
+}
+
+if(status.includes("Restarting")){
+analysis.push(`Container ${name} is restarting repeatedly`);
+}
+
+if(status.includes("Restarting") || status.includes("Exited")){
+analysis.push(`Possible crash loop detected for ${name}`);
+}
+
+});
+
+}
+
+if(analysis.length === 0){
+analysis.push("All systems operating normally");
+}
+
+res.json({analysis});
+
+});
+
+});
+
 
 /* START SERVER */
 
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+
+console.log(`CloudSage backend running on port ${PORT}`);
+
 });

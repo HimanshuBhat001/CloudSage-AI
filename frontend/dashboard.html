@@ -5,6 +5,7 @@
 <title>CloudSage Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
 <style>
 
@@ -23,7 +24,6 @@ width:230px;
 background:#0f172a;
 height:100vh;
 padding:25px;
-box-shadow:2px 0 10px rgba(0,0,0,0.5);
 }
 
 .sidebar h2{
@@ -38,12 +38,10 @@ margin:10px 0;
 color:white;
 text-decoration:none;
 border-radius:6px;
-transition:0.2s;
 }
 
 .sidebar a:hover{
 background:#1e293b;
-padding-left:15px;
 }
 
 /* MAIN AREA */
@@ -67,51 +65,22 @@ background:#111827;
 padding:25px;
 border-radius:10px;
 text-align:center;
-box-shadow:0 0 10px rgba(0,0,0,0.4);
-transition:0.3s;
 }
 
-.card:hover{
-transform:translateY(-5px);
-box-shadow:0 0 15px rgba(56,189,248,0.5);
-}
+/* PANELS */
 
-/* SERVER CARDS */
+.panel{
+background:#111827;
+padding:20px;
+border-radius:10px;
+margin-top:10px;
+}
 
 .serverCard{
-background:#111827;
-padding:20px;
-margin-bottom:10px;
-border-radius:10px;
-}
-
-/* LOG BOX */
-
-#logsBox{
-background:#111827;
-padding:20px;
-border-radius:10px;
-max-height:200px;
-overflow-y:auto;
-}
-
-/* ALERTS */
-
-.alertCard{
 background:#1e293b;
 padding:10px;
 margin-bottom:10px;
 border-radius:6px;
-}
-
-/* ALERT BANNER */
-
-#alertBox{
-display:none;
-background:#dc2626;
-padding:10px;
-border-radius:6px;
-margin-bottom:20px;
 }
 
 </style>
@@ -134,8 +103,6 @@ margin-bottom:20px;
 <div class="main">
 
 <h1>CloudSage Dashboard</h1>
-
-<div id="alertBox">⚠ High memory usage detected</div>
 
 <div class="cards">
 
@@ -168,17 +135,25 @@ margin-bottom:20px;
 <canvas id="cpuChart"></canvas>
 
 <h3 style="margin-top:40px;">Recent Logs</h3>
-<div id="logsBox"></div>
+<div class="panel" id="logsBox"></div>
 
 <h3 style="margin-top:40px;">Servers</h3>
-<div id="serversBox"></div>
+<div class="panel" id="serversBox"></div>
 
 <h3 style="margin-top:40px;">Alerts</h3>
-<div id="alertsBox"></div>
+<div class="panel" id="alertsBox"></div>
+
+<h3 style="margin-top:40px;">Containers</h3>
+<div class="panel" id="containersBox"></div>
+
+<h3 style="margin-top:40px;">AI System Analysis</h3>
+<div class="panel" id="analysisBox"></div>
 
 </div>
 
 <script>
+
+/* TOKEN CHECK */
 
 const token = localStorage.getItem("token");
 
@@ -186,35 +161,23 @@ if(!token){
 window.location.href="login.html";
 }
 
+/* CHART VARIABLES */
+
 let memoryChart;
 let cpuChart;
 
 let cpuHistory=[];
 let labels=[];
 
-/* LOAD STATUS */
+/* SOCKET.IO */
 
-async function loadStatus(){
+const socket = io("http://localhost:5000");
 
-const response=await fetch("http://localhost:5000/api/status");
-const data=await response.json();
-
-document.getElementById("serverStatus").innerText=data.server;
-document.getElementById("platform").innerText=data.platform;
-document.getElementById("cpu").innerText=data.cpuCores;
-document.getElementById("uptime").innerText=Math.floor(data.uptime)+" sec";
+socket.on("systemMetrics",(data)=>{
 
 const usedMem=parseFloat(data.usedMemory);
 const freeMem=parseFloat(data.freeMemory);
 const cpuLoad=parseFloat(data.cpuLoad);
-
-const usedPercent=(usedMem/(usedMem+freeMem))*100;
-
-if(usedPercent>80){
-document.getElementById("alertBox").style.display="block";
-}else{
-document.getElementById("alertBox").style.display="none";
-}
 
 /* MEMORY CHART */
 
@@ -238,7 +201,7 @@ memoryChart.update();
 
 }
 
-/* CPU HISTORY */
+/* CPU GRAPH */
 
 const time=new Date().toLocaleTimeString();
 
@@ -273,14 +236,28 @@ cpuChart.update();
 
 }
 
+});
+
+/* STATUS */
+
+async function loadStatus(){
+
+const res=await fetch("http://localhost:5000/api/status");
+const data=await res.json();
+
+document.getElementById("serverStatus").innerText=data.server;
+document.getElementById("platform").innerText=data.platform;
+document.getElementById("cpu").innerText=data.cpuCores;
+document.getElementById("uptime").innerText=Math.floor(data.uptime)+" sec";
+
 }
 
-/* LOAD LOGS */
+/* LOGS */
 
 async function loadLogs(){
 
-const response=await fetch("http://localhost:5000/api/logs");
-const logs=await response.json();
+const res=await fetch("http://localhost:5000/api/logs");
+const logs=await res.json();
 
 const box=document.getElementById("logsBox");
 box.innerHTML="";
@@ -293,12 +270,12 @@ box.appendChild(p);
 
 }
 
-/* LOAD SERVERS */
+/* SERVERS */
 
 async function loadServers(){
 
-const response=await fetch("http://localhost:5000/api/servers");
-const servers=await response.json();
+const res=await fetch("http://localhost:5000/api/servers");
+const servers=await res.json();
 
 const box=document.getElementById("serversBox");
 box.innerHTML="";
@@ -306,7 +283,6 @@ box.innerHTML="";
 servers.forEach(server=>{
 
 const div=document.createElement("div");
-
 div.className="serverCard";
 
 div.innerHTML=`
@@ -322,12 +298,12 @@ box.appendChild(div);
 
 }
 
-/* LOAD ALERTS */
+/* ALERTS */
 
 async function loadAlerts(){
 
-const response=await fetch("http://localhost:5000/api/alerts");
-const alerts=await response.json();
+const res=await fetch("http://localhost:5000/api/alerts");
+const alerts=await res.json();
 
 const box=document.getElementById("alertsBox");
 box.innerHTML="";
@@ -335,8 +311,7 @@ box.innerHTML="";
 alerts.forEach(alert=>{
 
 const div=document.createElement("div");
-
-div.className="alertCard";
+div.className="serverCard";
 
 div.innerHTML=`⚠ ${alert.message}`;
 
@@ -346,6 +321,73 @@ box.appendChild(div);
 
 }
 
+/* CONTAINERS */
+
+async function loadContainers(){
+
+const res=await fetch("http://localhost:5000/api/containers");
+const containers=await res.json();
+
+const box=document.getElementById("containersBox");
+box.innerHTML="";
+
+containers.forEach(container=>{
+
+const div=document.createElement("div");
+div.className="serverCard";
+
+div.innerHTML=`
+<b>${container.name}</b><br>
+Image: ${container.image}<br>
+Status: ${container.status}
+`;
+
+box.appendChild(div);
+
+});
+
+}
+
+/* AI ANALYSIS */
+
+async function loadAnalysis(){
+
+const res=await fetch("http://localhost:5000/api/analysis");
+const data=await res.json();
+
+const box=document.getElementById("analysisBox");
+box.innerHTML="";
+
+data.analysis.forEach(issue=>{
+
+const div=document.createElement("div");
+div.className="serverCard";
+
+div.innerText=issue;
+
+box.appendChild(div);
+
+});
+
+}
+
+/* INITIAL LOAD */
+
+loadStatus();
+loadLogs();
+loadServers();
+loadAlerts();
+loadContainers();
+loadAnalysis();
+
+/* AUTO REFRESH */
+
+setInterval(loadLogs,10000);
+setInterval(loadServers,10000);
+setInterval(loadAlerts,10000);
+setInterval(loadContainers,10000);
+setInterval(loadAnalysis,10000);
+
 /* LOGOUT */
 
 function logout(){
@@ -354,16 +396,6 @@ localStorage.removeItem("token");
 window.location.href="login.html";
 
 }
-
-loadStatus();
-loadLogs();
-loadServers();
-loadAlerts();
-
-setInterval(loadStatus,5000);
-setInterval(loadLogs,10000);
-setInterval(loadServers,10000);
-setInterval(loadAlerts,10000);
 
 </script>
 

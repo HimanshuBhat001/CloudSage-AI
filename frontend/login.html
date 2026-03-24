@@ -1,25 +1,262 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>CloudSage Login</title>
-<link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>CloudSage AI</title>
+
+<style>
+
+body{
+margin:0;
+background:#070b10;
+font-family:Consolas,monospace;
+color:white;
+overflow:hidden;
+}
+
+/* animated circuit grid */
+
+.grid{
+position:absolute;
+width:200%;
+height:200%;
+background-image:
+linear-gradient(#141c26 1px, transparent 1px),
+linear-gradient(90deg,#141c26 1px, transparent 1px);
+background-size:60px 60px;
+animation:gridmove 20s linear infinite;
+}
+
+@keyframes gridmove{
+0%{transform:translate(0,0)}
+100%{transform:translate(-60px,-60px)}
+}
+
+/* radar scanning ring */
+
+.radar{
+position:absolute;
+top:50%;
+left:50%;
+width:600px;
+height:600px;
+border:1px solid #1e2c3c;
+border-radius:50%;
+transform:translate(-50%,-50%);
+animation:rotate 12s linear infinite;
+opacity:0.2;
+}
+
+@keyframes rotate{
+0%{transform:translate(-50%,-50%) rotate(0deg)}
+100%{transform:translate(-50%,-50%) rotate(360deg)}
+}
+
+/* login panel */
+
+.panel{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+width:360px;
+background:#0e141b;
+border:1px solid #223041;
+padding:40px;
+border-radius:6px;
+box-shadow:0 0 40px #000;
+}
+
+/* title */
+
+.title{
+font-size:24px;
+letter-spacing:2px;
+margin-bottom:8px;
+}
+
+.sub{
+font-size:12px;
+color:#7d8da3;
+margin-bottom:25px;
+}
+
+/* inputs */
+
+input{
+width:100%;
+padding:12px;
+margin-bottom:14px;
+background:#141b23;
+border:1px solid #2b394b;
+color:white;
+outline:none;
+border-radius:3px;
+}
+
+input:focus{
+border:1px solid #00eaff;
+box-shadow:0 0 10px #00eaff;
+}
+
+/* button */
+
+button{
+width:100%;
+padding:12px;
+background:#00eaff;
+border:none;
+border-radius:3px;
+font-weight:bold;
+cursor:pointer;
+}
+
+button:hover{
+box-shadow:0 0 12px #00eaff;
+}
+
+/* node network */
+
+.node{
+position:absolute;
+width:4px;
+height:4px;
+background:#00eaff;
+border-radius:50%;
+opacity:0.8;
+}
+
+.line{
+position:absolute;
+height:1px;
+background:#00eaff;
+opacity:0.2;
+}
+
+</style>
+
 </head>
 
 <body>
 
-<div class="login-box">
+<div class="grid"></div>
+<div class="radar"></div>
 
-<h2>CloudSage Login</h2>
+<div class="panel">
+
+<div class="title" id="title"></div>
+<div class="sub">AI DevOps Monitoring Platform</div>
 
 <input id="email" placeholder="Email">
-
 <input id="password" type="password" placeholder="Password">
 
-<button onclick="login()">Login</button>
+<button id="loginBtn">ACCESS SYSTEM</button>
 
 </div>
 
-<script src="script.js"></script>
+<script>
+
+/* typing title */
+
+const text="CloudSage AI";
+let i=0;
+
+function type(){
+if(i<text.length){
+document.getElementById("title").innerHTML+=text[i];
+i++;
+setTimeout(type,80);
+}
+}
+type();
+
+/* create network nodes */
+
+for(let i=0;i<20;i++){
+
+let node=document.createElement("div");
+node.className="node";
+
+node.style.left=Math.random()*100+"vw";
+node.style.top=Math.random()*100+"vh";
+
+document.body.appendChild(node);
+
+}
+
+/* button escape */
+
+const email=document.getElementById("email");
+const btn=document.getElementById("loginBtn");
+
+function validEmail(e){
+return e.includes("@") && e.includes(".com");
+}
+
+btn.addEventListener("mouseover",()=>{
+
+if(!validEmail(email.value)){
+
+const x=(Math.random()*200)-100;
+const y=(Math.random()*120)-60;
+
+btn.style.transform=`translate(${x}px,${y}px)`;
+
+}
+
+});
+
+email.addEventListener("input",()=>{
+
+if(validEmail(email.value)){
+btn.style.transform="translate(0,0)";
+}
+
+});
+
+/* login */
+
+btn.addEventListener("click", async ()=>{
+
+if(!validEmail(email.value)){
+alert("Complete your email.");
+return;
+}
+
+const password=document.getElementById("password").value;
+
+const res=await fetch("http://localhost:5000/api/auth/login",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+email:email.value,
+password:password
+})
+
+});
+
+const data=await res.json();
+
+if(data.token){
+
+localStorage.setItem("token",data.token);
+
+alert("Login success");
+
+}else{
+
+alert(data.message);
+
+}
+
+});
+
+</script>
 
 </body>
 </html>

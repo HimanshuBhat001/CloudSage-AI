@@ -154,6 +154,59 @@ box.appendChild(div);
 
 }
 
+async function loadContainers(){
+
+const res = await fetch("http://localhost:5000/api/containers");
+const data = await res.json();
+
+const box = document.getElementById("containerBox");
+
+if(!box) return;
+
+box.innerHTML="";
+
+data.containers.forEach(container=>{
+
+const div=document.createElement("div");
+div.className="serverCard";
+
+div.innerHTML=`
+<b>${container.name}</b><br>
+Image: ${container.image}<br>
+Status: ${container.status}
+`;
+
+box.appendChild(div);
+
+});
+
+}
+
+
+async function loadAnalysis(){
+
+const res = await fetch("http://localhost:5000/api/analysis");
+const data = await res.json();
+
+const box=document.getElementById("analysisBox");
+
+if(!box) return;
+
+box.innerHTML="";
+
+data.analysis.forEach(issue=>{
+
+const div=document.createElement("div");
+div.className="serverCard";
+
+div.innerText=issue;
+
+box.appendChild(div);
+
+});
+
+}
+
 function logout(){
 
 localStorage.removeItem("token");
@@ -165,8 +218,12 @@ loadStatus();
 loadLogs();
 loadServers();
 loadAlerts();
+loadContainers();
+loadAnalysis();
 
 setInterval(loadStatus,5000);
 setInterval(loadLogs,10000);
 setInterval(loadServers,10000);
 setInterval(loadAlerts,10000);
+setInterval(loadContainers,10000);
+setInterval(loadAnalysis,10000);
